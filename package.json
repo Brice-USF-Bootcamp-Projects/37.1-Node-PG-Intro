@@ -17,5 +17,9 @@
     "url": "https://github.com/Brice-USF-Bootcamp-Projects/37.1-Node-PG-Intro/issues"
   },
   "homepage": "https://github.com/Brice-USF-Bootcamp-Projects/37.1-Node-PG-Intro#readme",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
 }
