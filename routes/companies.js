@@ -15,7 +15,6 @@ router.get('/', async (req, res, next) => {
     }
   })
 
-module.exports = router
 
 
 router.get('/:code', async (req, res, next) => {
