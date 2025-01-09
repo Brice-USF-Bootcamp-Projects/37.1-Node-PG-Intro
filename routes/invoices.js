@@ -32,49 +32,80 @@ router.get('/:id', async (req, res, next) => {
 
 /** Adds an invoice. Needs to be passed in JSON body of: {comp_code, amt}
 Returns: {invoice: {id, comp_code, amt, paid, add_date, paid_date}} **/
-router.post("/", async (req, res, next) => {
+router.put('/:id', async (req, res, next) => {
   try {
+    const { id } = req.params;
     const { comp_code, amt, paid, add_date, paid_date } = req.body;
 
-    // Validate required fields
-    if (!comp_code || amt === undefined || paid === undefined) {
-      throw new ExpressError("comp_code, amt, and paid are required", 400);
+    // Validate that at least one field is provided
+    if (!comp_code && amt === undefined && paid === undefined && !add_date && !paid_date) {
+      throw new ExpressError("At least one field must be provided to update.", 400);
     }
 
-    // Check if comp_code exists in companies table
-    const companyCheck = await db.query(
-      "SELECT code FROM companies WHERE code = $1",
-      [comp_code]
-    );
+    // Dynamically build the update query
+    const fields = [];
+    const values = [];
+    let queryIdx = 1;
 
-    if (companyCheck.rows.length === 0) {
-      throw new ExpressError(`Company with code '${comp_code}' does not exist.`, 400);
+    if (comp_code) {
+      fields.push(`comp_code = $${queryIdx++}`);
+      values.push(comp_code);
+    }
+    if (amt !== undefined) {
+      fields.push(`amt = $${queryIdx++}`);
+      values.push(amt);
+    }
+    if (paid !== undefined) {
+      fields.push(`paid = $${queryIdx++}`);
+      values.push(paid);
+    }
+    if (add_date) {
+      const validAddDate = new Date(add_date);
+      if (isNaN(validAddDate)) {
+        throw new ExpressError("Invalid add_date format. Must be a valid date.", 400);
+      }
+      fields.push(`add_date = $${queryIdx++}`);
+      values.push(validAddDate);
+    }
+    if (paid_date) {
+      const validPaidDate = new Date(paid_date);
+      if (isNaN(validPaidDate)) {
+        throw new ExpressError("Invalid paid_date format. Must be a valid date.", 400);
+      }
+      fields.push(`paid_date = $${queryIdx++}`);
+      values.push(validPaidDate);
     }
 
-    // Validate dates
-    const validAddDate = add_date ? new Date(add_date) : null;
-    const validPaidDate = paid_date ? new Date(paid_date) : null;
-
-    if (add_date && isNaN(validAddDate)) {
-      throw new ExpressError("Invalid add_date format. Must be a valid date.", 400);
-    }
-    if (paid_date && isNaN(validPaidDate)) {
-      throw new ExpressError("Invalid paid_date format. Must be a valid date.", 400);
+    // Ensure we have fields to update
+    if (fields.length === 0) {
+      throw new ExpressError("No valid fields to update.", 400);
     }
 
-    // Insert invoice
+    // Add the ID to the values array
+    values.push(id);
+
+    // Execute the dynamic update query
     const result = await db.query(
-      `INSERT INTO invoices (comp_code, amt, paid, add_date, paid_date)
-       VALUES ($1, $2, $3, $4, $5)
+      `UPDATE invoices
+       SET ${fields.join(", ")}
+       WHERE id = $${queryIdx}
        RETURNING *`,
-      [comp_code, amt, paid, validAddDate, validPaidDate]
+      values
     );
 
-    res.status(201).json({ invoice: result.rows[0] });
+    // Check if the invoice exists
+    if (result.rows.length === 0) {
+      throw new ExpressError(`Invoice with id '${id}' does not exist.`, 404);
+    }
+
+    // Return the updated invoice
+    res.json({ invoice: result.rows[0] });
   } catch (e) {
     return next(e);
   }
 });
+
+
 
 
 module.exports = router;
