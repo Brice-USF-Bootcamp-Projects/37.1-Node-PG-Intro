@@ -55,3 +55,53 @@ router.post('/', async (req, res, next) => {
 });
 
 
+// Update an existing company
+router.put('/:code', async (req, res, next) => {
+  try {
+      const { code } = req.params;
+      const { name, description } = req.body;
+
+      // Validate input
+      if (!name || !description) {
+          throw new ExpressError("Name and description are required", 400);
+      }
+
+      // Update the database
+      const result = await db.query(
+          'UPDATE companies SET name = $1, description = $2 WHERE code = $3 RETURNING *',
+          [name, description, code]
+      );
+
+      // Check if the company exists
+      if (result.rows.length === 0) {
+          throw new ExpressError(`Company with code ${code} does not exist.`, 404);
+      }
+
+      // Return the updated company
+      res.json({ company: result.rows[0] });
+  } catch (e) {
+      return next(e);
+  }
+});
+
+// Delete a company
+router.delete('/:code', async (req, res, next) => {
+  try {
+      const { code } = req.params;
+
+      // Delete from the database
+      const result = await db.query('DELETE FROM companies WHERE code = $1 RETURNING *', [code]);
+
+      // Check if the company exists
+      if (result.rows.length === 0) {
+          throw new ExpressError(`Company with code ${code} does not exist.`, 404);
+      }
+
+      // Return success message
+      res.json({ status: "deleted" });
+  } catch (e) {
+      return next(e);
+  }
+});
+
+module.exports = router;
